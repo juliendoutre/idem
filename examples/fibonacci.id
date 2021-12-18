@@ -1,0 +1,14 @@
+# The program entrypoint.
+main() {
+	print(fibonacci(20))
+}
+
+# Recursive implementation of the
+# Fibonacci n-term computation.
+fibonacci(n) {
+	if or(equal(n, 0), equal(n, 1)) {
+		1
+	} else {
+		add(fibonacci(sub(n, 1)), fibonacci(sub(n, 2)))
+	}
+}

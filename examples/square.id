@@ -1,0 +1,8 @@
+# The program entrypoint.
+main() {
+	print(square(2))
+}
+
+square(a) {
+	multiply(a, a)
+}
