@@ -13,7 +13,7 @@ impl std::fmt::Display for FileExtensionError {
 
 impl Error for FileExtensionError {}
 
-pub fn read<'a>(path: &str) -> Result<String, Box<dyn Error>> {
+pub fn read(path: &str) -> Result<String, Box<dyn Error>> {
     if path.ends_with(".id") {
         match std::fs::read_to_string(&path) {
             Ok(content) => Ok(content),

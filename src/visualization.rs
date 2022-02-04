@@ -33,7 +33,7 @@ fn function_calls_extract_from_expression(
                 destination: call.name.to_owned(),
             });
             for parameter in &call.parameters {
-                function_calls_extract_from_expression(&parameter, parent_function, graph);
+                function_calls_extract_from_expression(parameter, parent_function, graph);
             }
         }
         Expression::Branch(branch) => {

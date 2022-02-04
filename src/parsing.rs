@@ -33,7 +33,7 @@ impl<'a, I: Iterator<Item = &'a LocatedToken>> Parser<'a, I> {
     pub fn new(tokens: &'a mut I) -> Self {
         Self {
             current_token: tokens.next(),
-            tokens: tokens,
+            tokens,
         }
     }
 
@@ -262,21 +262,19 @@ impl<'a, I: Iterator<Item = &'a LocatedToken>> Parser<'a, I> {
 
                     Ok(Expression::FunctionCall(FunctionCall {
                         name: word.clone(),
-                        parameters: parameters,
+                        parameters,
                         location: expression_location,
                     }))
+                } else if let Ok(number) = word.parse::<u32>() {
+                    Ok(Expression::Literal(Literal::Number(Number {
+                        value: number,
+                        location: self.current_token.unwrap().location.clone(),
+                    })))
                 } else {
-                    if let Ok(number) = word.parse::<u32>() {
-                        Ok(Expression::Literal(Literal::Number(Number {
-                            value: number,
-                            location: self.current_token.unwrap().location.clone(),
-                        })))
-                    } else {
-                        Ok(Expression::Variable(Variable {
-                            name: word.clone(),
-                            location: self.current_token.unwrap().location.clone(),
-                        }))
-                    }
+                    Ok(Expression::Variable(Variable {
+                        name: word.clone(),
+                        location: self.current_token.unwrap().location.clone(),
+                    }))
                 }
             }
         } else {

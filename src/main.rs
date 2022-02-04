@@ -97,7 +97,7 @@ fn run_cmd(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let ast = parser.parse()?;
 
     let reports = validate(&ast);
-    if reports.len() != 0 {
+    if !reports.is_empty() {
         eprintln!("Issues were found in {}:", path);
 
         for report in reports {

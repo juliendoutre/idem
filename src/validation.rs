@@ -108,25 +108,23 @@ fn validate_expression(
                         location: call.location.clone(),
                     });
                 }
-            } else {
-                if let Some(arguments) = native_functions.get(call.name.as_str()) {
-                    if arguments.len() != call.parameters.len() {
-                        reports.push(Report {
-                            issue: format!(
-                                "function \"{}\" accepts {} arguments but received {} parameters",
-                                call.name,
-                                arguments.len(),
-                                call.parameters.len()
-                            ),
-                            location: call.location.clone(),
-                        });
-                    }
-                } else {
+            } else if let Some(arguments) = native_functions.get(call.name.as_str()) {
+                if arguments.len() != call.parameters.len() {
                     reports.push(Report {
-                        issue: format!("unknwon function \"{}\"", call.name),
+                        issue: format!(
+                            "function \"{}\" accepts {} arguments but received {} parameters",
+                            call.name,
+                            arguments.len(),
+                            call.parameters.len()
+                        ),
                         location: call.location.clone(),
-                    })
+                    });
                 }
+            } else {
+                reports.push(Report {
+                    issue: format!("unknwon function \"{}\"", call.name),
+                    location: call.location.clone(),
+                })
             }
 
             for parameter in &call.parameters {
@@ -134,7 +132,7 @@ fn validate_expression(
                     prototypes,
                     native_functions,
                     variables,
-                    &parameter,
+                    parameter,
                 ));
             }
 
@@ -145,7 +143,7 @@ fn validate_expression(
 
             if let Expression::Empty = *branch.condition {
                 reports.push(Report {
-                    issue: format!("empty branch condition"),
+                    issue: "empty branch condition".to_string(),
                     location: branch.location.clone(),
                 });
             } else {

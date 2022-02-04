@@ -148,7 +148,7 @@ impl Lexer {
 
 	fn wrap(&self, token: Token) -> LocatedToken {
 		LocatedToken {
-			token: token,
+			token,
 			location: Location {
 				path: self.path.to_owned(),
 				line: self.line,
