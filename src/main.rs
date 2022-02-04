@@ -3,6 +3,9 @@ use std::io::Write;
 
 use clap::{App, Arg, ArgMatches};
 
+use opentelemetry::global::shutdown_tracer_provider;
+use opentelemetry_datadog::{new_pipeline, ApiVersion};
+
 use idem::formatting::Formattable;
 use idem::interpretation::Interpreter;
 use idem::lexing::Lexer;
@@ -24,6 +27,11 @@ fn main() {
                     Arg::new("PATH")
                         .about("Path to an Idem source file")
                         .required(true),
+                )
+                .arg(
+                    Arg::new("tracing")
+                    .about("activate open telemetry tracing")
+                    .takes_value(false)
                 ),
         )
         .subcommand(
@@ -108,7 +116,21 @@ fn run_cmd(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     }
 
     let mut interpreter = Interpreter {};
-    interpreter.run(&ast)
+
+    if matches.is_present("tracing") {
+        let _tracer = new_pipeline()
+            .with_service_name("")
+            .with_version(ApiVersion::Version05)
+            .install_simple()?;
+    }
+
+    interpreter.run(&ast)?;
+
+    if matches.is_present("tracing") {
+        shutdown_tracer_provider();
+    }
+
+    Ok(())
 }
 
 fn format_cmd(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {

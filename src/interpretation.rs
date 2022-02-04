@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 use std::error::Error;
 
+use opentelemetry::global;
+use opentelemetry::trace::{Span, Tracer};
+
 use super::ast::{Expression, FunctionDefinition, Literal, Statement, AST};
 use super::native::{add, and, equal, multiply, not, or, print, sub, xor};
 
@@ -50,92 +53,101 @@ impl Interpreter {
                     self.interpretate(&*branch.r#else, variables, functions)
                 }
             }
-            Expression::FunctionCall(call) => match call.name.as_str() {
-                "or" => Ok(Some(or(
-                    self.interpretate(&call.parameters[0], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                    self.interpretate(&call.parameters[1], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                ))),
-                "and" => Ok(Some(and(
-                    self.interpretate(&call.parameters[0], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                    self.interpretate(&call.parameters[1], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                ))),
-                "xor" => Ok(Some(xor(
-                    self.interpretate(&call.parameters[0], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                    self.interpretate(&call.parameters[0], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                ))),
+            Expression::FunctionCall(call) => {
+                let tracer = global::tracer("");
+                let mut span = tracer.start(call.name.to_owned());
 
-                "not" => Ok(Some(not(self
-                    .interpretate(&call.parameters[0], variables, functions)
-                    .unwrap()
-                    .unwrap()))),
-                "equal" => Ok(Some(equal(
-                    self.interpretate(&call.parameters[0], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                    self.interpretate(&call.parameters[1], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                ))),
-                "add" => Ok(Some(add(
-                    self.interpretate(&call.parameters[0], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                    self.interpretate(&call.parameters[1], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                ))),
-                "sub" => Ok(Some(sub(
-                    self.interpretate(&call.parameters[0], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                    self.interpretate(&call.parameters[1], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                ))),
-                "multiply" => Ok(Some(multiply(
-                    self.interpretate(&call.parameters[0], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                    self.interpretate(&call.parameters[1], variables, functions)
-                        .unwrap()
-                        .unwrap(),
-                ))),
-                "print" => {
-                    print(
+                let result = match call.name.as_str() {
+                    "or" => Ok(Some(or(
                         self.interpretate(&call.parameters[0], variables, functions)
                             .unwrap()
                             .unwrap(),
-                    );
-                    Ok(None)
-                }
-                _ => {
-                    let function = functions.get(call.name.as_str()).unwrap();
-                    let mut local_variables = HashMap::new();
+                        self.interpretate(&call.parameters[1], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                    ))),
+                    "and" => Ok(Some(and(
+                        self.interpretate(&call.parameters[0], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                        self.interpretate(&call.parameters[1], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                    ))),
+                    "xor" => Ok(Some(xor(
+                        self.interpretate(&call.parameters[0], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                        self.interpretate(&call.parameters[0], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                    ))),
 
-                    for i in 0..call.parameters.len() {
-                        local_variables.insert(
-                            function.prototype.arguments[i].name.as_str(),
-                            self.interpretate(&call.parameters[i], variables, functions)
+                    "not" => Ok(Some(not(self
+                        .interpretate(&call.parameters[0], variables, functions)
+                        .unwrap()
+                        .unwrap()))),
+                    "equal" => Ok(Some(equal(
+                        self.interpretate(&call.parameters[0], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                        self.interpretate(&call.parameters[1], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                    ))),
+                    "add" => Ok(Some(add(
+                        self.interpretate(&call.parameters[0], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                        self.interpretate(&call.parameters[1], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                    ))),
+                    "sub" => Ok(Some(sub(
+                        self.interpretate(&call.parameters[0], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                        self.interpretate(&call.parameters[1], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                    ))),
+                    "multiply" => Ok(Some(multiply(
+                        self.interpretate(&call.parameters[0], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                        self.interpretate(&call.parameters[1], variables, functions)
+                            .unwrap()
+                            .unwrap(),
+                    ))),
+                    "print" => {
+                        print(
+                            self.interpretate(&call.parameters[0], variables, functions)
                                 .unwrap()
                                 .unwrap(),
                         );
+                        Ok(None)
                     }
+                    _ => {
+                        let function = functions.get(call.name.as_str()).unwrap();
+                        let mut local_variables = HashMap::new();
 
-                    self.interpretate(&function.body, &mut local_variables, functions)
-                }
-            },
+                        for i in 0..call.parameters.len() {
+                            local_variables.insert(
+                                function.prototype.arguments[i].name.as_str(),
+                                self.interpretate(&call.parameters[i], variables, functions)
+                                    .unwrap()
+                                    .unwrap(),
+                            );
+                        }
+
+                        self.interpretate(&function.body, &mut local_variables, functions)
+                    }
+                };
+
+                span.end();
+
+                result
+            }
         }
     }
 }
