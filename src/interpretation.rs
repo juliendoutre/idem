@@ -22,13 +22,15 @@ impl Interpreter {
             function.prototype.name == "main"
         }) {
             let Statement::FunctionDefinition(function) = main;
-            self.interpretate(
-                &function.body,
-                &mut HashMap::new(),
-                &functions,
-                &Context::current(),
-            )
-            .unwrap();
+
+            let tracer = global::tracer("");
+            let span = tracer.start("main");
+
+            tracer.with_span(span, |ctx| {
+                self.interpretate(&function.body, &mut HashMap::new(), &functions, &ctx)
+                    .unwrap()
+            });
+
             Ok(())
         } else {
             panic!("no main function")
