@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::error::Error;
 
-use opentelemetry::global;
-use opentelemetry::trace::{Span, Tracer};
+use opentelemetry::trace::Tracer;
+use opentelemetry::{global, Context};
 
 use super::ast::{Expression, FunctionDefinition, Literal, Statement, AST};
 use super::native::{add, and, equal, multiply, not, or, print, sub, xor};
@@ -22,8 +22,13 @@ impl Interpreter {
             function.prototype.name == "main"
         }) {
             let Statement::FunctionDefinition(function) = main;
-            self.interpretate(&function.body, &mut HashMap::new(), &functions)
-                .unwrap();
+            self.interpretate(
+                &function.body,
+                &mut HashMap::new(),
+                &functions,
+                &Context::current(),
+            )
+            .unwrap();
             Ok(())
         } else {
             panic!("no main function")
@@ -35,6 +40,7 @@ impl Interpreter {
         expression: &Expression,
         variables: &mut HashMap<&str, u32>,
         functions: &HashMap<&str, &FunctionDefinition>,
+        ctx: &Context,
     ) -> Result<Option<u32>, Box<dyn Error>> {
         match expression {
             Expression::Empty => Ok(None),
@@ -44,84 +50,89 @@ impl Interpreter {
             Expression::Variable(var) => Ok(Some(*variables.get(var.name.as_str()).unwrap())),
             Expression::Branch(branch) => {
                 if self
-                    .interpretate(&*branch.condition, variables, functions)?
+                    .interpretate(
+                        &*branch.condition,
+                        variables,
+                        functions,
+                        &Context::current(),
+                    )?
                     .unwrap()
                     == 1
                 {
-                    self.interpretate(&*branch.then, variables, functions)
+                    self.interpretate(&*branch.then, variables, functions, ctx)
                 } else {
-                    self.interpretate(&*branch.r#else, variables, functions)
+                    self.interpretate(&*branch.r#else, variables, functions, ctx)
                 }
             }
             Expression::FunctionCall(call) => {
                 let tracer = global::tracer("");
-                let mut span = tracer.start(call.name.to_owned());
+                let span = tracer.start_with_context(call.name.to_owned(), ctx);
 
-                let result = match call.name.as_str() {
+                tracer.with_span(span, |ctx| match call.name.as_str() {
                     "or" => Ok(Some(or(
-                        self.interpretate(&call.parameters[0], variables, functions)
+                        self.interpretate(&call.parameters[0], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
-                        self.interpretate(&call.parameters[1], variables, functions)
+                        self.interpretate(&call.parameters[1], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
                     ))),
                     "and" => Ok(Some(and(
-                        self.interpretate(&call.parameters[0], variables, functions)
+                        self.interpretate(&call.parameters[0], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
-                        self.interpretate(&call.parameters[1], variables, functions)
+                        self.interpretate(&call.parameters[1], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
                     ))),
                     "xor" => Ok(Some(xor(
-                        self.interpretate(&call.parameters[0], variables, functions)
+                        self.interpretate(&call.parameters[0], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
-                        self.interpretate(&call.parameters[0], variables, functions)
+                        self.interpretate(&call.parameters[0], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
                     ))),
 
                     "not" => Ok(Some(not(self
-                        .interpretate(&call.parameters[0], variables, functions)
+                        .interpretate(&call.parameters[0], variables, functions, &ctx)
                         .unwrap()
                         .unwrap()))),
                     "equal" => Ok(Some(equal(
-                        self.interpretate(&call.parameters[0], variables, functions)
+                        self.interpretate(&call.parameters[0], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
-                        self.interpretate(&call.parameters[1], variables, functions)
+                        self.interpretate(&call.parameters[1], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
                     ))),
                     "add" => Ok(Some(add(
-                        self.interpretate(&call.parameters[0], variables, functions)
+                        self.interpretate(&call.parameters[0], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
-                        self.interpretate(&call.parameters[1], variables, functions)
+                        self.interpretate(&call.parameters[1], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
                     ))),
                     "sub" => Ok(Some(sub(
-                        self.interpretate(&call.parameters[0], variables, functions)
+                        self.interpretate(&call.parameters[0], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
-                        self.interpretate(&call.parameters[1], variables, functions)
+                        self.interpretate(&call.parameters[1], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
                     ))),
                     "multiply" => Ok(Some(multiply(
-                        self.interpretate(&call.parameters[0], variables, functions)
+                        self.interpretate(&call.parameters[0], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
-                        self.interpretate(&call.parameters[1], variables, functions)
+                        self.interpretate(&call.parameters[1], variables, functions, &ctx)
                             .unwrap()
                             .unwrap(),
                     ))),
                     "print" => {
                         print(
-                            self.interpretate(&call.parameters[0], variables, functions)
+                            self.interpretate(&call.parameters[0], variables, functions, &ctx)
                                 .unwrap()
                                 .unwrap(),
                         );
@@ -134,19 +145,15 @@ impl Interpreter {
                         for i in 0..call.parameters.len() {
                             local_variables.insert(
                                 function.prototype.arguments[i].name.as_str(),
-                                self.interpretate(&call.parameters[i], variables, functions)
+                                self.interpretate(&call.parameters[i], variables, functions, &ctx)
                                     .unwrap()
                                     .unwrap(),
                             );
                         }
 
-                        self.interpretate(&function.body, &mut local_variables, functions)
+                        self.interpretate(&function.body, &mut local_variables, functions, &ctx)
                     }
-                };
-
-                span.end();
-
-                result
+                })
             }
         }
     }

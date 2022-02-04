@@ -119,7 +119,7 @@ fn run_cmd(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
 
     if matches.is_present("tracing") {
         let _tracer = new_pipeline()
-            .with_service_name("")
+            .with_service_name(path)
             .with_version(ApiVersion::Version05)
             .install_simple()?;
     }
